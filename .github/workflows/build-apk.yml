@@ -49,6 +49,50 @@ jobs:
           test -f source/lanxing-tv-1.16.6-b292/gradlew
           chmod +x source/lanxing-tv-1.16.6-b292/gradlew
 
+      - name: Inspect app language resources
+        working-directory: source/lanxing-tv-1.16.6-b292
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root = Path("app/src")
+          print("=== RESOURCE FILES ===")
+          for p in sorted(root.rglob("strings.xml")):
+              print(p)
+          print("=== CHINESE TEXT IN RESOURCE XML ===")
+          count = 0
+          for p in sorted(root.rglob("*.xml")):
+              try:
+                  lines = p.read_text(encoding="utf-8").splitlines()
+              except Exception:
+                  continue
+              for n, line in enumerate(lines, 1):
+                  if re.search(r"[\\u4e00-\\u9fff]", line):
+                      print(f"{p}:{n}: {line.strip()[:500]}")
+                      count += 1
+                      if count >= 300:
+                          print("OUTPUT_LIMIT_REACHED")
+                          raise SystemExit(0)
+          print(f"RESOURCE_CHINESE_LINES={count}")
+          print("=== LOCALE / LANGUAGE CODE REFERENCES ===")
+          count = 0
+          for p in sorted(root.rglob("*")):
+              if not p.is_file() or p.suffix not in {".kt", ".java", ".xml", ".properties"}:
+                  continue
+              try:
+                  lines = p.read_text(encoding="utf-8").splitlines()
+              except Exception:
+                  continue
+              for n, line in enumerate(lines, 1):
+                  if re.search(r"Locale|language|locale|zh_CN|zh-rCN|values-zh", line, re.I):
+                      print(f"{p}:{n}: {line.strip()[:400]}")
+                      count += 1
+                      if count >= 120:
+                          print("OUTPUT_LIMIT_REACHED")
+                          raise SystemExit(0)
+          print(f"LOCALE_REFERENCE_LINES={count}")
+          PY
+
       - name: Prepare API 36 test build
         working-directory: source/lanxing-tv-1.16.6-b292
         run: |
