@@ -58,8 +58,8 @@ jobs:
           from pathlib import Path
           p = Path("app/build.gradle.kts")
           s = p.read_text()
-          old = 'buildTypes {\n    release {'
-          new = 'buildTypes {\n    debug {\n        applicationIdSuffix = ".test"\n        versionNameSuffix = "-test"\n    }\n    release {'
+          old = '    buildTypes {\n        release {'
+          new = '    buildTypes {\n        debug {\n            applicationIdSuffix = ".test"\n            versionNameSuffix = "-test"\n        }\n        release {'
           if old not in s:
               raise SystemExit("Could not locate buildTypes release block")
           p.write_text(s.replace(old, new, 1))
