@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'lanxing-tv-1.16.6-b292-json-playlist-agp891.zip'
+      - '.github/workflows/build-apk.yml'
   workflow_dispatch:
 
 permissions:
@@ -24,7 +25,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -39,8 +39,15 @@ jobs:
           test -f lanxing-tv-1.16.6-b292-json-playlist-agp891.zip
           mkdir -p source
           unzip -q lanxing-tv-1.16.6-b292-json-playlist-agp891.zip -d source
+          test -f source/lanxing-tv-1.16.6-b292/build.gradle.kts
           test -f source/lanxing-tv-1.16.6-b292/gradlew
           chmod +x source/lanxing-tv-1.16.6-b292/gradlew
+
+      - name: Align Android Gradle Plugin with API 36
+        working-directory: source/lanxing-tv-1.16.6-b292
+        run: |
+          sed -i 's/id("com.android.application") version "8.9.1"/id("com.android.application") version "8.10.1"/' build.gradle.kts
+          grep 'com.android.application' build.gradle.kts
 
       - name: Build debug APK
         working-directory: source/lanxing-tv-1.16.6-b292
