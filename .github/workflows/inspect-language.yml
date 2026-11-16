@@ -22,46 +22,49 @@ jobs:
           unzip -q lanxing-tv-1.16.6-b292-json-playlist-agp891.zip -d source
           test -d source/lanxing-tv-1.16.6-b292/app/src
 
-      - name: List app language strings and Chinese UI text
+      - name: Inspect visible Chinese UI strings
         working-directory: source/lanxing-tv-1.16.6-b292
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           root = Path("app/src/main")
+          chinese = re.compile(r"[\u4e00-\u9fff]")
           print("=== STRINGS XML ===")
-          for p in sorted(root.rglob("strings.xml")):
-              print(f"--- {p} ---")
+          for p in sorted((root / "res" / "values").glob("strings.xml")):
               print(p.read_text(encoding="utf-8"))
-          print("=== CHINESE TEXT IN KOTLIN / JAVA / RESOURCE STRINGS ===")
-          pattern = re.compile(r"[\u4e00-\u9fff]")
-          roots = [root / "java", root / "res" / "values"]
-          count = 0
-          for base in roots:
+          print("=== KOTLIN / JAVA STRING LITERALS ===")
+          literal = re.compile(r'["\']([^"\']*[\u4e00-\u9fff][^"\']*)["\']')
+          total = 0
+          for p in sorted((root / "java").rglob("*")):
+              if not p.is_file() or p.suffix not in {".kt", ".java"}:
+                  continue
+              try:
+                  lines = p.read_text(encoding="utf-8").splitlines()
+              except Exception:
+                  continue
+              for n, line in enumerate(lines, 1):
+                  stripped = line.strip()
+                  if stripped.startswith(("//", "/*", "*", "*/")):
+                      continue
+                  matches = literal.findall(line)
+                  if matches:
+                      print(f"{p}:{n}: {line.strip()[:700]}")
+                      total += len(matches)
+          print(f"CODE_STRING_LITERALS={total}")
+          print("=== VISIBLE XML ATTRIBUTES ===")
+          total = 0
+          for folder in ["layout", "menu", "xml", "values"]:
+              base = root / "res" / folder
               if not base.exists():
                   continue
-              for p in sorted(base.rglob("*")):
-                  if not p.is_file() or p.suffix not in {".kt", ".java", ".xml"}:
-                      continue
-                  try:
-                      lines = p.read_text(encoding="utf-8").splitlines()
-                  except Exception:
-                      continue
-                  for n, line in enumerate(lines, 1):
-                      if pattern.search(line):
-                          print(f"{p}:{n}: {line.strip()[:600]}")
-                          count += 1
-                          if count >= 250:
-                              print("OUTPUT_LIMIT_REACHED")
-                              raise SystemExit(0)
-          print(f"CHINESE_UI_LINES={count}")
-          print("=== APPLICATION AND MAIN ACTIVITY FILES ===")
-          for p in sorted((root / "java").rglob("App.kt")) + sorted((root / "java").rglob("MainActivity.kt")):
-              print(f"--- {p} ---")
-              lines = p.read_text(encoding="utf-8").splitlines()
-              for n, line in enumerate(lines, 1):
-                  if any(x in line for x in ["attachBaseContext", "class App", "class MainActivity", "setContent", "Locale", "Configuration", "onCreate"]):
-                      lo, hi = max(1, n-3), min(len(lines), n+8)
-                      for k in range(lo, hi+1):
-                          print(f"{k}: {lines[k-1]}")
+              for p in sorted(base.rglob("*.xml")):
+                  for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+                      if chinese.search(line) and re.search(r'android:(text|hint|contentDescription|title|label)=', line):
+                          print(f"{p}:{n}: {line.strip()[:700]}")
+                          total += 1
+          print(f"VISIBLE_XML_LINES={total}")
+          print("=== APP CLASS ===")
+          p = root / "java/com/cyj265/iptvplayer/App.kt"
+          print(p.read_text(encoding="utf-8"))
           PY
