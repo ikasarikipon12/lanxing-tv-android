@@ -1,0 +1,67 @@
+name: Inspect LanXing TV language
+
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-language.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Extract source project
+        run: |
+          mkdir -p source
+          unzip -q lanxing-tv-1.16.6-b292-json-playlist-agp891.zip -d source
+          test -d source/lanxing-tv-1.16.6-b292/app/src
+
+      - name: List app language strings and Chinese UI text
+        working-directory: source/lanxing-tv-1.16.6-b292
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root = Path("app/src/main")
+          print("=== STRINGS XML ===")
+          for p in sorted(root.rglob("strings.xml")):
+              print(f"--- {p} ---")
+              print(p.read_text(encoding="utf-8"))
+          print("=== CHINESE TEXT IN KOTLIN / JAVA / RESOURCE STRINGS ===")
+          pattern = re.compile(r"[\u4e00-\u9fff]")
+          roots = [root / "java", root / "res" / "values"]
+          count = 0
+          for base in roots:
+              if not base.exists():
+                  continue
+              for p in sorted(base.rglob("*")):
+                  if not p.is_file() or p.suffix not in {".kt", ".java", ".xml"}:
+                      continue
+                  try:
+                      lines = p.read_text(encoding="utf-8").splitlines()
+                  except Exception:
+                      continue
+                  for n, line in enumerate(lines, 1):
+                      if pattern.search(line):
+                          print(f"{p}:{n}: {line.strip()[:600]}")
+                          count += 1
+                          if count >= 250:
+                              print("OUTPUT_LIMIT_REACHED")
+                              raise SystemExit(0)
+          print(f"CHINESE_UI_LINES={count}")
+          print("=== APPLICATION AND MAIN ACTIVITY FILES ===")
+          for p in sorted((root / "java").rglob("App.kt")) + sorted((root / "java").rglob("MainActivity.kt")):
+              print(f"--- {p} ---")
+              lines = p.read_text(encoding="utf-8").splitlines()
+              for n, line in enumerate(lines, 1):
+                  if any(x in line for x in ["attachBaseContext", "class App", "class MainActivity", "setContent", "Locale", "Configuration", "onCreate"]):
+                      lo, hi = max(1, n-3), min(len(lines), n+8)
+                      for k in range(lo, hi+1):
+                          print(f"{k}: {lines[k-1]}")
+          PY
