@@ -5,6 +5,7 @@ on:
     paths:
       - 'lanxing-tv-1.16.6-b292-json-playlist-agp891.zip'
       - '.github/workflows/build-apk.yml'
+      - 'scripts/localize_english.py'
   workflow_dispatch:
 
 permissions:
@@ -49,11 +50,16 @@ jobs:
           test -f source/lanxing-tv-1.16.6-b292/gradlew
           chmod +x source/lanxing-tv-1.16.6-b292/gradlew
 
+      - name: Apply English localization
+        run: |
+          python3 -m py_compile scripts/localize_english.py
+          python3 scripts/localize_english.py
+
       - name: Prepare API 36 test build
         working-directory: source/lanxing-tv-1.16.6-b292
         run: |
           sed -i 's/id("com.android.application") version "8.9.1"/id("com.android.application") version "8.10.1"/' build.gradle.kts
-          sed -i 's/versionCode = System.getenv("RUN_NUMBER")?.toIntOrNull() ?: 74/versionCode = 293/' app/build.gradle.kts
+          sed -i 's/versionCode = System.getenv("RUN_NUMBER")?.toIntOrNull() ?: 74/versionCode = 294/' app/build.gradle.kts
           python3 - <<'PY'
           from pathlib import Path
           p = Path("app/build.gradle.kts")
@@ -65,7 +71,7 @@ jobs:
           p.write_text(s.replace(old, new, 1))
           Path("app/src/debug/res/values").mkdir(parents=True, exist_ok=True)
           Path("app/src/debug/res/values/strings.xml").write_text(
-              '<resources>\n    <string name="app_name">LanXing TV Test</string>\n</resources>\n'
+              '<resources>\n    <string name="app_name">LanXing TV English</string>\n</resources>\n'
           )
           PY
           grep 'com.android.application' build.gradle.kts
@@ -75,7 +81,7 @@ jobs:
       - name: Build debug APK
         working-directory: source/lanxing-tv-1.16.6-b292
         env:
-          RUN_NUMBER: '293'
+          RUN_NUMBER: '294'
         run: ./gradlew --no-daemon --stacktrace assembleDebug
 
       - name: Upload APK artifact
