@@ -59,13 +59,13 @@ jobs:
         working-directory: source/lanxing-tv-1.16.6-b292
         run: |
           sed -i 's/id("com.android.application") version "8.9.1"/id("com.android.application") version "8.10.1"/' build.gradle.kts
-          sed -i 's/versionCode = System.getenv("RUN_NUMBER")?.toIntOrNull() ?: 74/versionCode = 294/' app/build.gradle.kts
+          sed -i 's/versionCode = System.getenv("RUN_NUMBER")?.toIntOrNull() ?: 74/versionCode = 295/' app/build.gradle.kts
           python3 - <<'PY'
           from pathlib import Path
           p = Path("app/build.gradle.kts")
           s = p.read_text()
           old = '    buildTypes {\n        release {'
-          new = '    buildTypes {\n        debug {\n            applicationIdSuffix = ".test"\n            versionNameSuffix = "-test"\n        }\n        release {'
+          new = '    buildTypes {\n        debug {\n            applicationIdSuffix = ".english"\n            versionNameSuffix = "-en"\n        }\n        release {'
           if old not in s:
               raise SystemExit("Could not locate buildTypes release block")
           p.write_text(s.replace(old, new, 1))
@@ -81,7 +81,7 @@ jobs:
       - name: Build debug APK
         working-directory: source/lanxing-tv-1.16.6-b292
         env:
-          RUN_NUMBER: '294'
+          RUN_NUMBER: '295'
         run: ./gradlew --no-daemon --stacktrace assembleDebug
 
       - name: Upload APK artifact
