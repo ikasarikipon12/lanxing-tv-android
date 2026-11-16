@@ -49,16 +49,33 @@ jobs:
           test -f source/lanxing-tv-1.16.6-b292/gradlew
           chmod +x source/lanxing-tv-1.16.6-b292/gradlew
 
-      - name: Align Android Gradle Plugin with API 36
+      - name: Prepare API 36 test build
         working-directory: source/lanxing-tv-1.16.6-b292
         run: |
           sed -i 's/id("com.android.application") version "8.9.1"/id("com.android.application") version "8.10.1"/' build.gradle.kts
+          sed -i 's/versionCode = System.getenv("RUN_NUMBER")?.toIntOrNull() ?: 74/versionCode = 293/' app/build.gradle.kts
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("app/build.gradle.kts")
+          s = p.read_text()
+          old = 'buildTypes {\n    release {'
+          new = 'buildTypes {\n    debug {\n        applicationIdSuffix = ".test"\n        versionNameSuffix = "-test"\n    }\n    release {'
+          if old not in s:
+              raise SystemExit("Could not locate buildTypes release block")
+          p.write_text(s.replace(old, new, 1))
+          Path("app/src/debug/res/values").mkdir(parents=True, exist_ok=True)
+          Path("app/src/debug/res/values/strings.xml").write_text(
+              '<resources>\n    <string name="app_name">LanXing TV Test</string>\n</resources>\n'
+          )
+          PY
           grep 'com.android.application' build.gradle.kts
+          grep 'versionCode' app/build.gradle.kts
+          grep -A4 'buildTypes {' app/build.gradle.kts
 
       - name: Build debug APK
         working-directory: source/lanxing-tv-1.16.6-b292
         env:
-          RUN_NUMBER: ${{ github.run_number }}
+          RUN_NUMBER: '293'
         run: ./gradlew --no-daemon --stacktrace assembleDebug
 
       - name: Upload APK artifact
